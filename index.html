@@ -1,0 +1,489 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#12110D">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Odposlech 80,0 MHz</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap">
+<style>
+html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)} body{margin:0} [hidden]{display:none!important}
+/* Jeden sloupec jako přijímač: ovládání → pásek signálu → nalezený bunkr → noční zápisník. */
+:root{
+  --bg:#EEE7D7; --plocha:#F7F2E7; --cara:#D6CAB0; --text:#29241B; --tlumene:#776B56;
+  --akcent:#A85F00; --akcent-text:#FFF8EC; --signal:#4F6B22; --chyba:#9B2C1F;
+  --f-display:"Chakra Petch", "Arial Narrow", system-ui, sans-serif;
+  --f-text:"IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  --f-mono:"IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#12110D; --plocha:#1C1A14; --cara:#353024; --text:#ECE3CF; --tlumene:#9A8F78;
+  --akcent:#F0A239; --akcent-text:#1A1206; --signal:#A9C96A; --chyba:#F08B7A; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#12110D; --plocha:#1C1A14; --cara:#353024; --text:#ECE3CF; --tlumene:#9A8F78;
+  --akcent:#F0A239; --akcent-text:#1A1206; --signal:#A9C96A; --chyba:#F08B7A; color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font:400 15px/1.5 var(--f-text);padding-inline:16px;padding-block:20px 48px}
+main{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+h1,h2{font-family:var(--f-display);font-weight:600;margin:0;text-wrap:balance}
+h1{font-size:28px;line-height:1.1;letter-spacing:.01em}
+h2{font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--tlumene);font-weight:500}
+.navest{font:500 12px/1 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--tlumene)}
+header{display:flex;flex-direction:column;gap:8px}
+header p{margin:0;color:var(--tlumene);max-width:60ch}
+section{display:flex;flex-direction:column;gap:12px}
+.panel{background:var(--plocha);border:1px solid var(--cara);border-radius:4px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+
+.ovladani{display:flex;gap:8px;flex-wrap:wrap}
+button,.tlacitko{font:500 15px/1 var(--f-text);border-radius:4px;border:1px solid var(--cara);background:var(--plocha);color:var(--text);
+  padding:0 16px;height:44px;display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;text-decoration:none}
+button:focus-visible,.tlacitko:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--akcent);outline-offset:2px}
+.hlavni{background:var(--akcent);border-color:var(--akcent);color:var(--akcent-text);flex:1 1 180px;height:52px;font-size:17px;font-family:var(--f-display);font-weight:600;letter-spacing:.03em}
+.hlavni[aria-pressed="true"]{background:transparent;color:var(--akcent)}
+.vedlejsi{flex:1 1 140px}
+.male{height:34px;padding:0 12px;font-size:13px}
+.tecka{width:8px;height:8px;border-radius:50%;background:currentColor;display:inline-block}
+.hlavni[aria-pressed="true"] .tecka{animation:blik 1s steps(2) infinite}
+@keyframes blik{50%{opacity:.2}}
+@media (prefers-reduced-motion:reduce){.hlavni[aria-pressed="true"] .tecka{animation:none}}
+
+.stav{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stav div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.stav b{font:500 18px/1.2 var(--f-mono);font-variant-numeric:tabular-nums}
+.stav span{font-size:12px;color:var(--tlumene)}
+.hlaska{margin:0;font-size:14px;color:var(--tlumene)}
+.hlaska.chyba{color:var(--chyba)}
+canvas{width:100%;height:72px;display:block;border-radius:2px;background:var(--bg)}
+.prvky{font:500 18px/1.4 var(--f-mono);letter-spacing:.06em;color:var(--akcent);overflow-wrap:anywhere;min-height:1.4em}
+.prepis{font:400 15px/1.5 var(--f-mono);overflow-wrap:anywhere;margin:0;min-height:1.5em}
+.prepis .zlom{color:var(--tlumene)}
+
+.vysledek{border-color:var(--akcent)}
+.vysledek[hidden]{display:none!important}
+.kod{font:600 64px/1 var(--f-display);letter-spacing:.12em;font-variant-numeric:tabular-nums}
+.radek{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.mrizka{font:500 22px/1.2 var(--f-mono);font-variant-numeric:tabular-nums}
+.souradnice{font:400 13px/1.4 var(--f-mono);color:var(--tlumene)}
+.potvrzeni{font:500 12px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;padding:6px 8px;border-radius:2px;border:1px solid currentColor}
+.potvrzeni.ok{color:var(--signal)} .potvrzeni.ceka{color:var(--tlumene)}
+
+.seznam{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.seznam li{display:grid;grid-template-columns:auto 1fr auto;gap:4px 14px;align-items:center;padding:12px 0;border-top:1px solid var(--cara)}
+.seznam li:first-child{border-top:0}
+.seznam .k{font:600 26px/1 var(--f-display);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.seznam .info{display:flex;flex-direction:column;min-width:0}
+.seznam .info b{font:500 15px/1.3 var(--f-mono);font-variant-numeric:tabular-nums}
+.seznam .info span{font-size:12px;color:var(--tlumene)}
+.seznam .akce{display:flex;gap:6px}
+.seznam li.stary{opacity:.55}
+.prazdno{margin:0;color:var(--tlumene);font-size:14px}
+
+details{border-top:1px solid var(--cara);padding-top:12px}
+summary{cursor:pointer;font:500 13px/1 var(--f-display);letter-spacing:.12em;text-transform:uppercase;color:var(--tlumene)}
+.nastaveni{display:flex;flex-direction:column;gap:14px;padding-top:14px}
+label{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--tlumene)}
+input,select{font:400 16px/1 var(--f-mono);height:44px;padding:0 12px;border-radius:4px;border:1px solid var(--cara);background:var(--plocha);color:var(--text);width:100%}
+.spolu{display:flex;gap:8px}
+.spolu input{flex:1;min-width:0}
+.navod{margin:0;padding-left:18px;color:var(--tlumene);font-size:14px;display:flex;flex-direction:column;gap:4px}
+</style>
+</head>
+<body>
+
+<main>
+  <header>
+    <span class="navest">Nasdara · 80,0 MHz · od setmění do svítání</span>
+    <h1>Odposlech 80,0 MHz</h1>
+    <p>Poslouchá morzeovku z vysílačky, přepíše ji na číslice a z šesti číslic mřížky a čtyř číslic kódu najde bunkr na mapě.</p>
+  </header>
+
+  <section class="panel" aria-label="Příjem">
+    <div class="ovladani">
+      <button id="poslech" class="hlavni" aria-pressed="false"><span class="tecka"></span><span id="poslech-text">Poslouchat</span></button>
+      <button id="soubor-tl" class="vedlejsi">Rozebrat nahrávku</button>
+      <input id="soubor" type="file" accept="audio/*,video/*" hidden>
+    </div>
+    <p id="hlaska" class="hlaska">Vysílačku nalaď na 80,0 MHz a mobil polož k reproduktoru.</p>
+    <div class="stav">
+      <div><b id="ton">—</b><span>tón</span></div>
+      <div><b id="tempo">—</b><span>tempo</span></div>
+      <div><b id="odstup">—</b><span>nad šumem</span></div>
+    </div>
+    <canvas id="pasek" width="1040" height="144" aria-label="Pásek signálu za posledních 8 sekund"></canvas>
+    <div id="prvky" class="prvky" aria-live="off"></div>
+    <p id="prepis" class="prepis"></p>
+  </section>
+
+  <section id="vysledek" class="panel vysledek" hidden aria-live="polite">
+    <div class="radek"><h2>Kód do bunkru</h2><span id="potvrzeni" class="potvrzeni ceka">1× slyšeno</span></div>
+    <div id="kod" class="kod">0000</div>
+    <div class="radek">
+      <div><div class="navest">Mřížka</div><div id="mrizka" class="mrizka">000 000</div><div id="souradnice" class="souradnice"></div></div>
+    </div>
+    <div class="ovladani">
+      <a id="mapa" class="tlacitko hlavni" href="#" target="_blank" rel="noopener">Otevřít na iZurvive</a>
+      <button id="ulozit" class="vedlejsi">Uložit do noci</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Dnešní bunkry</h2>
+    <div class="panel">
+      <ul id="seznam" class="seznam"></ul>
+      <p id="prazdno" class="prazdno">Zatím nic. Potvrzený bunkr (slyšený dvakrát) se sem uloží sám. Každou noc vysílají tři z 23 bunkrů.</p>
+    </div>
+  </section>
+
+  <details>
+    <summary>Ruční zadání a nastavení</summary>
+    <div class="nastaveni">
+      <label for="rucne">Deset číslic (6 mřížka + 4 kód), když dekodér něco přeslechne
+        <span class="spolu"><input id="rucne" inputmode="numeric" autocomplete="off" placeholder="045123 4821"><button id="rucne-tl">Přidat</button></span>
+      </label>
+      <label for="osa">Svislá číslice mřížky se počítá
+        <select id="osa"><option value="zdola">zdola, jako souřadnice ve hře</option><option value="shora">shora, jako popisky mapy</option></select>
+      </label>
+      <button id="vymazat" class="male">Vymazat poslech</button>
+      <ol class="navod">
+        <li>Osobní nebo základnová vysílačka, 80,0 MHz, jen v noci.</li>
+        <li>Zpráva: 6 číslic mřížky, pak 4 číslice kódu, a opakuje se po pár minutách.</li>
+        <li>Kód platí, jen dokud je bunkr ve vysílání. Zadej ho na klávesnici u dveří a potvrď klíčem.</li>
+        <li>Když mikrofon nejde, nahraj vysílání diktafonem a dej Rozebrat nahrávku.</li>
+      </ol>
+    </div>
+  </details>
+</main>
+
+<script>
+"use strict";
+// ---------- Morzeovka ----------
+const ABECEDA = {".-":"A","-...":"B","-.-.":"C","-..":"D",".":"E","..-.":"F","--.":"G","....":"H","..":"I",".---":"J","-.-":"K",".-..":"L","--":"M","-.":"N","---":"O",".--.":"P","--.-":"Q",".-.":"R","...":"S","-":"T","..-":"U","...-":"V",".--":"W","-..-":"X","-.--":"Y","--..":"Z",
+  ".----":"1","..---":"2","...--":"3","....-":"4",".....":"5","-....":"6","--...":"7","---..":"8","----.":"9","-----":"0",
+  ".-.-.-":".","--..--":",","..--..":"?","-..-.":"/","-...-":"=",".-.-.":"+","-....-":"-"};
+const VELIKOST_MAPY = 16384; // m; jen pro „shora" — neověřené (267 km² ≈ 16,3 km)
+
+// ---------- Zpracování zvuku: FFT → tón → klíčování ----------
+function fft(re, im){
+  const n = re.length;
+  for (let i=1,j=0;i<n;i++){ let b=n>>1; for(;j&b;b>>=1) j^=b; j^=b; if(i<j){[re[i],re[j]]=[re[j],re[i]];[im[i],im[j]]=[im[j],im[i]];} }
+  for (let len=2;len<=n;len<<=1){ const a=-2*Math.PI/len, wr=Math.cos(a), wi=Math.sin(a);
+    for (let i=0;i<n;i+=len){ let cr=1,ci=0;
+      for (let k=0;k<len/2;k++){ const p=i+k,q=p+len/2, tr=re[q]*cr-im[q]*ci, ti=re[q]*ci+im[q]*cr;
+        re[q]=re[p]-tr; im[q]=im[p]-ti; re[p]+=tr; im[p]+=ti; const t=cr*wr-ci*wi; ci=cr*wi+ci*wr; cr=t; } } }
+}
+
+class Prijimac {
+  constructor(sr){
+    this.sr = sr;
+    this.N = 1 << Math.round(Math.log2(sr*0.012));
+    this.hop = Math.round(sr*0.005);
+    this.krok = this.hop/sr;
+    this.okno = Float32Array.from({length:this.N},(_,i)=>0.5-0.5*Math.cos(2*Math.PI*i/(this.N-1)));
+    this.re = new Float32Array(this.N); this.im = new Float32Array(this.N);
+    this.lo = Math.max(2, Math.floor(250*this.N/sr)); this.hi = Math.min(this.N/2-2, Math.ceil(2500*this.N/sr));
+    this.hlasy = new Float32Array(this.N/2);
+    this.buf = new Float32Array(0);
+    this.reset();
+  }
+  reset(){
+    this.hlasy.fill(0); this.tonBin = -1;
+    this.zap = false; this.kandidat = false; this.potvrzeno = 0;
+    this.behy = []; this.bezi = 0;           // uzavřené běhy {on, d} a délka otevřeného
+    this.horni = 20; this.dolni = 3; this.snr = 0;
+    this.historie = []; // posledních ~8 s: [snr, zap]
+  }
+  vloz(vzorky){
+    const nb = new Float32Array(this.buf.length+vzorky.length); nb.set(this.buf); nb.set(vzorky,this.buf.length); this.buf = nb;
+    let o = 0;
+    while (this.buf.length - o >= this.N){ this.ramec(this.buf, o); o += this.hop; }
+    this.buf = this.buf.slice(o);
+  }
+  ramec(b, o){
+    const {N,re,im,okno,lo,hi} = this;
+    for (let i=0;i<N;i++){ re[i]=b[o+i]*okno[i]; im[i]=0; }
+    fft(re,im);
+    const pasmo = [];
+    let vrchol = lo, vrcholP = 0;
+    for (let k=lo;k<=hi;k++){ const p=re[k]*re[k]+im[k]*im[k]; re[k]=p; pasmo.push(p); if(p>vrcholP){vrcholP=p;vrchol=k;} }
+    pasmo.sort((a,c)=>a-c);
+    const median = pasmo[pasmo.length>>1] + 1e-12;
+    // hlasování o tónu: vyhrává kmitočet, který se opakovaně zvedá nad šum
+    for (let k=lo;k<=hi;k++) this.hlasy[k]*=0.9995;
+    if (vrcholP/median > 12) this.hlasy[vrchol] += 1;
+    let nej=-1, nejH=0;
+    for (let k=lo+1;k<hi;k++){ const h=this.hlasy[k-1]*.5+this.hlasy[k]+this.hlasy[k+1]*.5; if(h>nejH){nejH=h;nej=k;} }
+    if (nejH > 8) this.tonBin = nej;
+
+    let snr = 0;
+    if (this.tonBin > 0){
+      const t=this.tonBin, sig = Math.max(re[t-1],re[t],re[t+1]);
+      snr = 10*Math.log10(sig/median);
+    }
+    this.snr = snr;
+    const prah = Math.max(7, (this.horni+this.dolni)/2);
+    const chce = this.zap ? snr > prah-2 : snr > prah+2;
+    // změna stavu až po dvou rámcích za sebou (10 ms) — odfiltruje praskání
+    if (chce !== this.zap){ this.potvrzeno++; if (this.potvrzeno >= 2){ this.prepni(); } }
+    else this.potvrzeno = 0;
+    this.bezi += this.krok;
+    if (this.zap) this.horni += (snr-this.horni)*0.03; else this.dolni += (snr-this.dolni)*0.01;
+    this.historie.push(snr, this.zap?1:0);
+    if (this.historie.length > 3200) this.historie.splice(0, this.historie.length-3200);
+  }
+  prepni(){
+    const posun = this.potvrzeno*this.krok;   // okraj byl už o dva rámce dřív
+    this.behy.push({on:this.zap, d:Math.max(0,this.bezi-posun)});
+    if (this.behy.length > 4000) this.behy.splice(0, this.behy.length-4000);
+    this.zap = !this.zap; this.bezi = posun; this.potvrzeno = 0;
+  }
+  get tonHz(){ return this.tonBin>0 ? this.tonBin*this.sr/this.N : 0; }
+}
+
+// ---------- Dekódování: běhy → tečky/čárky → znaky → zprávy ----------
+function jednotka(znacky, predchozi){
+  if (!znacky.length) return predchozi;
+  const lg = znacky.map(d=>Math.log(d)).sort((a,b)=>a-b);
+  let c1=lg[0], c2=lg[lg.length-1];
+  for (let it=0;it<12;it++){
+    let s1=0,n1=0,s2=0,n2=0;
+    for (const v of lg){ if (Math.abs(v-c1)<=Math.abs(v-c2)){s1+=v;n1++;} else {s2+=v;n2++;} }
+    if(n1) c1=s1/n1; if(n2) c2=s2/n2;
+  }
+  if (c2-c1 > Math.log(1.8)) return Math.exp(c1);
+  const stred = Math.exp((c1+c2)/2);           // jen jeden druh značek
+  if (predchozi) return stred < 2*predchozi ? stred : stred/3;
+  return stred < 0.12 ? stred : stred/3;
+}
+
+function dekoduj(behy, otevreny){
+  const znacky = behy.filter(b=>b.on && b.d>0.015).map(b=>b.d).slice(-300);
+  const u = jednotka(znacky, dekoduj.u);
+  dekoduj.u = u;
+  const vystup = []; // položky: {z:znak, prvky} | " " | "|"
+  let sym = "";
+  const zavri = ()=>{ if(sym){ vystup.push({z:ABECEDA[sym]||"?", prvky:sym}); sym=""; } };
+  const vsechny = otevreny ? behy.concat([otevreny]) : behy;
+  for (const b of vsechny){
+    if (b.on){ if (b.d < 0.015) continue; sym += b.d < 2*u ? "." : "-"; continue; }
+    if (b.d > 10*u){ zavri(); if (vystup.length && vystup[vystup.length-1]!=="|") vystup.push("|"); }
+    else if (b.d > 5*u){ zavri(); if (vystup.length && typeof vystup[vystup.length-1]==="object") vystup.push(" "); }
+    else if (b.d > 2*u) zavri();
+  }
+  const neuzavreny = sym; // poslední znak ještě běží
+  return {u, vystup, neuzavreny};
+}
+
+function zpravy(vystup){
+  // úseky mezi dlouhými pauzami; z každého jen číslice
+  const useky = [[]];
+  for (const v of vystup){ if (v==="|") useky.push([]); else if (typeof v==="object" && /\d/.test(v.z)) useky[useky.length-1].push(v.z); }
+  const pocty = new Map();
+  const pridej = c => pocty.set(c, (pocty.get(c)||0)+1);
+  for (const u of useky){
+    const s = u.join("");
+    if (s.length === 10) pridej(s);
+    else if (s.length > 10 && s.length % 10 === 0) for (let i=0;i<s.length;i+=10) pridej(s.slice(i,i+10));
+  }
+  return pocty;
+}
+
+// ---------- Souřadnice a mapa ----------
+function bunkr(cisla){
+  const gx = +cisla.slice(0,3), gy = +cisla.slice(3,6);
+  const x = gx*100+50;
+  const y = osa.value === "shora" ? VELIKOST_MAPY - (gy*100+50) : gy*100+50;
+  return {mrizka: cisla.slice(0,3)+" "+cisla.slice(3,6), kod: cisla.slice(6,10), x, y,
+    mapa: `https://www.izurvive.com/nasdara/#location=${x.toFixed(2)};${y.toFixed(2)};7`};
+}
+
+// ---------- Paměť noci ----------
+const KLIC = "odposlech-nasdara-v1";
+const HODIN_NOC = 12;
+function nacti(){ try { return JSON.parse(localStorage.getItem(KLIC)) || []; } catch { return []; } }
+function uloz(z){ try { localStorage.setItem(KLIC, JSON.stringify(z)); } catch {} }
+let zapisnik = nacti();
+function zapis(cisla, slyseno){
+  const i = zapisnik.findIndex(z=>z.cisla===cisla);
+  if (i>=0){ zapisnik[i].t = Date.now(); zapisnik[i].n = Math.max(zapisnik[i].n||1, slyseno); }
+  else zapisnik.unshift({cisla, t:Date.now(), n:slyseno});
+  uloz(zapisnik); vykresliSeznam();
+}
+
+const $ = id => document.getElementById(id);
+const osa = $("osa");
+try { osa.value = localStorage.getItem(KLIC+"-osa") || "zdola"; } catch {}
+osa.addEventListener("change", ()=>{ try{localStorage.setItem(KLIC+"-osa", osa.value);}catch{} vykresliSeznam(); if (posledni) ukazVysledek(posledni.cisla, posledni.n); });
+
+function cas(t){ return new Date(t).toLocaleTimeString("cs-CZ",{hour:"2-digit",minute:"2-digit"}); }
+function vykresliSeznam(){
+  const ul = $("seznam"); ul.textContent = "";
+  const ted = Date.now();
+  for (const z of zapisnik){
+    const b = bunkr(z.cisla);
+    const li = document.createElement("li");
+    if (ted - z.t > HODIN_NOC*3600e3) li.className = "stary";
+    const k = document.createElement("span"); k.className="k"; k.textContent=b.kod;
+    const info = document.createElement("div"); info.className="info";
+    const m = document.createElement("b"); m.textContent = b.mrizka;
+    const s = document.createElement("span"); s.textContent = `${cas(z.t)} · ${z.n>=2?"potvrzeno "+z.n+"×":"slyšeno jednou"}`;
+    info.append(m,s);
+    const akce = document.createElement("div"); akce.className="akce";
+    const a = document.createElement("a"); a.className="tlacitko male"; a.href=b.mapa; a.target="_blank"; a.rel="noopener"; a.textContent="Mapa";
+    const x = document.createElement("button"); x.className="male"; x.textContent="Smazat"; x.setAttribute("aria-label","Smazat bunkr "+b.mrizka);
+    x.onclick = ()=>{ zapisnik = zapisnik.filter(q=>q!==z); uloz(zapisnik); vykresliSeznam(); };
+    akce.append(a,x);
+    li.append(k,info,akce); ul.append(li);
+  }
+  $("prazdno").hidden = zapisnik.length>0;
+}
+vykresliSeznam();
+
+// ---------- Výsledek ----------
+let posledni = null;
+function ukazVysledek(cisla, n){
+  posledni = {cisla, n};
+  const b = bunkr(cisla);
+  $("vysledek").hidden = false;
+  $("kod").textContent = b.kod;
+  $("mrizka").textContent = b.mrizka;
+  $("souradnice").textContent = `X ${b.x.toLocaleString("cs-CZ")} m · Y ${b.y.toLocaleString("cs-CZ")} m`;
+  $("mapa").href = b.mapa;
+  const p = $("potvrzeni");
+  p.textContent = n>=2 ? `potvrzeno ${n}×` : "1× slyšeno · čeká na opakování";
+  p.className = "potvrzeni " + (n>=2?"ok":"ceka");
+}
+$("ulozit").onclick = ()=>{ if (posledni) zapis(posledni.cisla, posledni.n); };
+
+function zpracujVysledky(pocty){
+  let nej = null;
+  for (const [c,n] of pocty){
+    if (n>=2 && !zapisnik.some(z=>z.cisla===c && (z.n||1)>=n)) zapis(c,n);
+    if (!nej || n>nej[1] || (n===nej[1])) nej = [c,n];
+  }
+  if (nej && (!posledni || posledni.cisla!==nej[0] || posledni.n!==nej[1])) ukazVysledek(nej[0], nej[1]);
+}
+
+// ---------- Zobrazení příjmu ----------
+const platno = $("pasek"), g = platno.getContext("2d");
+function barva(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+function vykresli(p){
+  const W=platno.width, H=platno.height, h=p.historie, n=h.length/2;
+  g.clearRect(0,0,W,H);
+  const cAk = barva("--akcent"), cT = barva("--tlumene"), cS = barva("--signal");
+  const sir = W/1600;
+  g.fillStyle = cS; g.globalAlpha = .28;
+  for (let i=0;i<n;i++) if (h[2*i+1]) g.fillRect(W-(n-i)*sir, 0, sir+.5, H);
+  g.globalAlpha = 1;
+  const yz = v => H - Math.max(0,Math.min(40,v))/40*(H-8) - 4;
+  const prah = Math.max(7,(p.horni+p.dolni)/2);
+  g.strokeStyle = cT; g.setLineDash([6,6]); g.lineWidth=2; g.beginPath(); g.moveTo(0,yz(prah)); g.lineTo(W,yz(prah)); g.stroke(); g.setLineDash([]);
+  g.strokeStyle = cAk; g.lineWidth = 2.5; g.beginPath();
+  for (let i=0;i<n;i++){ const x=W-(n-i)*sir, y=yz(h[2*i]); i?g.lineTo(x,y):g.moveTo(x,y); }
+  g.stroke();
+}
+
+function vykresliPrepis(d){
+  // tečky a čárky posledních znaků
+  const zn = d.vystup.filter(v=>typeof v==="object").slice(-12).map(v=>v.prvky.replace(/\./g,"·").replace(/-/g,"–"));
+  if (d.neuzavreny) zn.push(d.neuzavreny.replace(/\./g,"·").replace(/-/g,"–"));
+  $("prvky").textContent = zn.join("  ");
+  const el = $("prepis"); el.textContent = "";
+  const posl = d.vystup.slice(-160);
+  for (const v of posl){
+    if (v==="|"){ const s=document.createElement("span"); s.className="zlom"; s.textContent=" ⏐ "; el.append(s); }
+    else el.append(v===" " ? " " : v.z);
+  }
+}
+
+function aktualizuj(p){
+  const otevreny = {on:p.zap, d:p.bezi};
+  const d = dekoduj(p.behy, otevreny);
+  $("ton").textContent = p.tonHz ? Math.round(p.tonHz)+" Hz" : "—";
+  $("tempo").textContent = d.u && p.behy.length>6 ? Math.round(1.2/d.u)+" WPM" : "—";
+  $("odstup").textContent = p.tonBin>0 ? Math.round(p.snr)+" dB" : "—";
+  vykresliPrepis(d);
+  zpracujVysledky(zpravy(d.vystup));
+}
+
+function hlaska(t, chyba=false){ const h=$("hlaska"); h.textContent=t; h.classList.toggle("chyba",chyba); }
+
+// ---------- Živý poslech ----------
+let ctx=null, proud=null, uzel=null, zdroj=null, prijimac=null, smycka=0, zamek=null;
+async function spust(){
+  try {
+    proud = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
+  } catch (e){
+    hlaska("Mikrofon tady prohlížeč nepustil. Nahraj vysílání diktafonem a dej Rozebrat nahrávku.", true);
+    return;
+  }
+  ctx = new (window.AudioContext||window.webkitAudioContext)();
+  await ctx.resume();
+  if (!prijimac || prijimac.sr !== ctx.sampleRate) prijimac = new Prijimac(ctx.sampleRate);
+  zdroj = ctx.createMediaStreamSource(proud);
+  uzel = ctx.createScriptProcessor(2048,1,1);
+  uzel.onaudioprocess = e => prijimac.vloz(e.inputBuffer.getChannelData(0));
+  const ticho = ctx.createGain(); ticho.gain.value = 0;
+  zdroj.connect(uzel); uzel.connect(ticho); ticho.connect(ctx.destination);
+  try { zamek = await navigator.wakeLock?.request("screen"); } catch {}
+  $("poslech").setAttribute("aria-pressed","true"); $("poslech-text").textContent = "Zastavit";
+  hlaska("Poslouchám. Tón se najde sám během pár pípnutí.");
+  const tik = ()=>{ vykresli(prijimac); smycka = requestAnimationFrame(tik); };
+  tik();
+  aktualizuj.int = setInterval(()=>aktualizuj(prijimac), 150);
+}
+function zastav(){
+  cancelAnimationFrame(smycka); clearInterval(aktualizuj.int);
+  uzel?.disconnect(); zdroj?.disconnect(); proud?.getTracks().forEach(t=>t.stop()); ctx?.close();
+  zamek?.release?.(); zamek=null; ctx=null;
+  $("poslech").setAttribute("aria-pressed","false"); $("poslech-text").textContent = "Poslouchat";
+  hlaska("Zastaveno. Přepis zůstává, další poslech naváže.");
+}
+$("poslech").onclick = ()=> ctx ? zastav() : spust();
+
+// ---------- Nahrávka ----------
+$("soubor-tl").onclick = ()=> $("soubor").click();
+$("soubor").onchange = async e => {
+  const f = e.target.files[0]; e.target.value = "";
+  if (!f) return;
+  if (ctx) zastav();
+  hlaska("Rozebírám nahrávku…");
+  try {
+    const ac = new (window.AudioContext||window.webkitAudioContext)();
+    const zvuk = await ac.decodeAudioData(await f.arrayBuffer());
+    ac.close();
+    const p = new Prijimac(zvuk.sampleRate);
+    const data = zvuk.getChannelData(0);
+    // dva průchody: první najde tón, druhý čte celou nahrávku s ním
+    for (let i=0;i<data.length;i+=8192) p.vloz(data.subarray(i,i+8192));
+    const ton = p.tonBin, hlasy = p.hlasy.slice();
+    p.reset(); p.buf = new Float32Array(0); p.hlasy.set(hlasy); p.tonBin = ton;
+    for (let i=0;i<data.length;i+=8192) p.vloz(data.subarray(i,i+8192));
+    p.prepni();
+    dekoduj.u = 0;
+    prijimac = p; aktualizuj(p); vykresli(p);
+    hlaska(p.tonBin>0 ? `Hotovo: ${Math.round(zvuk.duration)} s nahrávky.` : "V nahrávce jsem nenašel žádný tón morzeovky.", p.tonBin<=0);
+  } catch {
+    hlaska("Tenhle soubor neumím přečíst. Zkus nahrávku z diktafonu (m4a, mp3, wav).", true);
+  }
+};
+
+// ---------- Ruční zadání, vymazání ----------
+$("rucne-tl").onclick = ()=>{
+  const c = $("rucne").value.replace(/\D/g,"");
+  if (c.length !== 10){ hlaska("Ručně zadej přesně deset číslic: šest mřížky a čtyři kódu.", true); return; }
+  ukazVysledek(c, 1); zapis(c, 1); $("rucne").value = "";
+  hlaska("Přidáno ručně.");
+};
+$("vymazat").onclick = ()=>{
+  if (prijimac) prijimac.reset();
+  dekoduj.u = 0; posledni = null;
+  $("vysledek").hidden = true; $("prvky").textContent=""; $("prepis").textContent="";
+  if (prijimac) vykresli(prijimac);
+  hlaska("Poslech vymazán. Uložené bunkry zůstávají.");
+};
+</script>
+</body>
+</html>
