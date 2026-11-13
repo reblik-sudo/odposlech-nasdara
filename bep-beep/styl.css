@@ -1,0 +1,17 @@
+/* Stránky Bep Beep — systémové písmo, černá a bílá, zelená jako jediné zvýraznění (jako aplikace). */
+:root{ --bg:#FFFFFF; --text:#111111; --tlumene:#5E5E63; --cara:#E3E3E8; --akcent:#1E9E44; color-scheme:light }
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#000000; --text:#F5F5F7; --tlumene:#9A9AA0; --cara:#2A2A2E; --akcent:#30D158; color-scheme:dark }}
+:root[data-theme="dark"]{ --bg:#000000; --text:#F5F5F7; --tlumene:#9A9AA0; --cara:#2A2A2E; --akcent:#30D158; color-scheme:dark }
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:400 17px/1.55 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;padding:32px 16px 64px}
+main{max-width:640px;margin:0 auto}
+header{display:flex;align-items:center;gap:14px;margin-bottom:28px}
+header img{width:56px;height:56px;border-radius:13px}
+h1{font-size:30px;line-height:1.15;font-weight:600;margin:0}
+h2{font-size:21px;font-weight:600;margin:40px 0 8px;padding-top:24px;border-top:1px solid var(--cara)}
+h3{font-size:17px;font-weight:600;margin:22px 0 4px}
+p,li{color:var(--text)} ul{padding-left:20px;margin:6px 0}
+.tlumene,small{color:var(--tlumene)}
+a{color:var(--akcent)}
+nav{display:flex;gap:16px;font-size:15px;margin-top:8px}
