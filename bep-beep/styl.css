@@ -15,3 +15,6 @@ p,li{color:var(--text)} ul{padding-left:20px;margin:6px 0}
 .tlumene,small{color:var(--tlumene)}
 a{color:var(--akcent)}
 nav{display:flex;gap:16px;font-size:15px;margin-top:8px}
+/* Patička: copyright, symbol firmy a její název — „likebrand" se píše celý malými. */
+.paticka{display:flex;align-items:center;gap:8px;margin-top:56px;padding-top:20px;border-top:1px solid var(--cara);color:var(--tlumene);font-size:15px}
+.paticka svg{height:14px;width:auto;color:var(--text)}
